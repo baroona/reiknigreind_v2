@@ -39,14 +39,6 @@ def getValue(board, player):
     return ol
 
 
-def getValue2(theta, board, player):
-    features = getFeatures(board, player)
-    iw = np.reshape(theta[0:7920], (198, 40))
-    hw = np.reshape(theta[7920:7960], (40, 1))
-    hl = sigmoid(np.matmul(features, iw))
-    ol = sigmoid(np.matmul(np.transpose(hl), hw))
-    return ol
-
 
 def getFeatures(board, player):
     features = np.zeros((198))
@@ -160,7 +152,7 @@ class torch_nn_policy():
         self.y_sigmoid = 0
         self.target = 0
         self.alpha = 0.001
-        self.theta = np.random.random_sample(23)
+        self.theta = np.random.random_sample(198)
         self.alpha_theta = 0.01
 
     def forward(self, x):
@@ -224,6 +216,7 @@ def softmax(possible_moves, possible_boards, board, player, net):
     # store2 = []
     pol = np.zeros(n)
     pol2 = np.zeros(n)
+    feat = []
     s = 0
     # print(possible_moves)
     for i in range(0, n):
@@ -231,21 +224,24 @@ def softmax(possible_moves, possible_boards, board, player, net):
         # print("this is temp_val %i", temp_val)
         # temp_val = np.dot(np.transpose(net.policy_nn.theta), possible_boards[i][1:24])
         store.append([possible_boards[i], possible_moves[i]])
+        feat.append(getFeatures(possible_boards[i], player))
         # print(net.torch_nn_policy.forward(possible_boards[i][1:24]))
         # pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, net.torch_nn_policy.forward(possible_boards[i][1:24]))), 7)
-        pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, (possible_boards[i][1:24]))), 12)
+        pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, (feat[i]))), 12)
 
         # net.torch_nn_policy.backward(0.5)
         s = s + pol[i]
     # s = np.sum(pol)
     # print("this is pol")
     # print(pol)
-    val = np.zeros(23)
+    val = np.zeros(198)
     for j in range(0, n):
         pol2[j] = pol[j] / (s + 0.00000000000001)
-        val = val + (pol2[j] * possible_boards[j][1:24])
+        val = val + (pol2[j] * feat[j])
 
-    val = board[1:24] - val
+    # print(pol2)
+    # print(val)
+    # val = board[1:24] - val
     # print("pol")
     # print(pol)
     # print("pol2")
@@ -278,17 +274,15 @@ def action(board_copy, dice, player, i, net=None):
     if len(possible_moves) == 0:
         return []
 
-    gamma = 0.5
-
     ret_arr, softmax_deriv = softmax(possible_moves, possible_boards, board_copy, player, net)
     s_prime = ret_arr[0]
 
     # print(0 + gamma * net.torch_nn.forward(getFeatures(s_prime, player)) - net.torch_nn.forward(getFeatures(board_copy, player)))
 
     # delta = 0 + gamma * net.val_func_nn.forward(s_prime, player) - net.val_func_nn.forward(board_copy, player)
-    delta = 0 + gamma * net.torch_nn.forward(getFeatures(s_prime, player)) - net.torch_nn.forward(getFeatures(board_copy, player))
+    delta = 0 + net.gamma * net.torch_nn.forward(getFeatures(s_prime, player)) - net.torch_nn.forward(getFeatures(board_copy, player))
     # print(delta)
-    net.torch_nn.backward(gamma, delta)
+    net.torch_nn.backward(net.gamma, delta)
     # print("delta is %i", delta)
     # net.val_func_nn.w = net.val_func_nn.w + (net.val_func_nn.alpha_w * delta * net.val_func_nn.backward(board_copy, player))
     # net.policy_nn.theta = np.append(np.ravel(nn.input_weights), nn.hidden_weights)
@@ -296,7 +290,7 @@ def action(board_copy, dice, player, i, net=None):
     # HERA WEIGHTS I SITTHVORU LAGI
 
     net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * net.i * delta * softmax_deriv
-    net.i = 0.5 * net.i
+    net.i = net.gamma * net.i
     # if(i > 1)
 
     return ret_arr[1]
