@@ -202,6 +202,8 @@ def play_a_game(commentary=False, net=None):
     player = np.random.randint(2) * 2 - 1  # which player begins?
     net.i = 1
     # play on
+    net.torch_nn.null_z()
+    net.torch_nn_policy.null_z()
     while not game_over(board) and not check_for_error(board):
         if commentary:
             print("lets go player ", player)
@@ -241,8 +243,14 @@ def play_a_game(commentary=False, net=None):
     # print(f_final)
     # print(agent.getValue(board, player))
     delta = -1 * player - net.torch_nn.forward(agent.getFeatures(board_copy, player))
-    net.torch_nn.backward(0.5, delta)
-    net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * net.i * delta * board_copy[1:24]
+    # print(net.torch_nn_policy.theta)
+    net.torch_nn.backward(net.gamma, delta)
+    net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (agent.getFeatures(board_copy, player * -1))
+    net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
+    # print("delta")
+    # print(delta)
+    # print(net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z)
+
     return -1 * player
 
 
