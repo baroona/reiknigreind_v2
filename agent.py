@@ -11,6 +11,7 @@ import random
 import math
 import torch
 from torch.autograd import Variable
+import pickle
 
 # import copy
 
@@ -93,50 +94,12 @@ def getFeatures(board, player):
 
 class net():
     def __init__(self):
-        self.val_func_nn = val_func_nn()
-        self.policy_nn = policy_nn()
+        # self.val_func_nn = val_func_nn()
+        # self.policy_nn = policy_nn()
         self.torch_nn = torch_nn()
         self.torch_nn_policy = torch_nn_policy()
         self.i = 1
         self.gamma = 1
-
-
-class val_func_nn():
-    def __init__(self):
-        self.num_inputs = 198
-        self.num_hidden_units = 40
-        self.hidden_layer = [np.random.randn() for x in range(40)]
-        # 2
-        self.output_layer = [np.random.randn() for x in range(1)]
-
-        # R x C  198 x 40
-        self.input_weights = [[np.random.randn() for x in range(40)] for y in range(198)]
-        # 40 x 2
-        self.hidden_weights = [[np.random.randn() for x in range(1)] for y in range(40)]
-        self.w = None
-        self.alpha_w = 0.01
-
-    def forward(self, board, player):
-        features = getFeatures(board, player)
-        self.hidden_layer = sigmoid(np.matmul(features, self.input_weights))
-        self.output_layer = sigmoid(np.matmul(np.transpose(self.hidden_layer), self.hidden_weights))
-        self.w = np.append(np.ravel(self.input_weights), self.hidden_weights)
-        return self.output_layer
-
-    def backward(self, board, player):
-        features = getFeatures(board, player)
-        # R x C  198 x 40
-        d_1 = [[np.random.randn() for x in range(40)] for y in range(198)]
-        # 40 x 2
-        d_2 = [[np.random.randn() for x in range(1)] for y in range(40)]
-        for j in range(0, 40):
-                d_2[j] = sigmoid_derivative(self.output_layer) * self.hidden_layer[j]
-                for i in range(0, 198):
-                    d_1[i][j] = sigmoid_derivative(self.output_layer) * self.hidden_weights[j] * self.hidden_layer[j] * (1 - self.hidden_layer[j]) * features[i]
-                    d_1[i][j] = d_1[i][j][0]
-        self.input_weights = np.add(self.input_weights, d_1[:][:][0])
-        self.hidden_weights = np.add(self.hidden_weights, d_2[:][0])
-        return np.append(np.ravel(d_1), d_2)
 
 
 class torch_nn():
@@ -192,12 +155,12 @@ class torch_nn_policy():
         self.device = torch.device('cpu')
         self.w1 = Variable(torch.randn(40, 23, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.b1 = Variable(torch.zeros((40, 1), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
-        self.w2 = Variable(torch.randn(23, 40, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
+        self.w2 = Variable(torch.randn(1, 40, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.b2 = Variable(torch.zeros((1, 1), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.y_sigmoid = 0
         self.target = 0
         self.alpha = 0.001
-        self.theta = np.random.randn(23)
+        self.theta = np.random.random_sample(23)
         self.alpha_theta = 0.01
 
     def forward(self, x):
@@ -216,7 +179,7 @@ class torch_nn_policy():
         # y = torch.mm(w2,h_sigmoid) + b2 # multiply with the output weights w2 and add bias
         # y_sigmoid = y.sigmoid() # squash the output
         # delta2 = 0 + gamma * target - y_sigmoid.detach().cpu().numpy() # this is the usual TD error
-        self.backward(0.5)
+        # self.backward(0.5)
         return self.target
 
     def backward(self, gamma):
@@ -234,89 +197,6 @@ class torch_nn_policy():
         self.b2.grad.data.zero_()
         self.w1.grad.data.zero_()
         self.b1.grad.data.zero_()
-
-
-class policy_nn():
-
-    def __init__(self):
-        self.time_step = 0
-        # number of feature inputs
-        self.num_inputs = 23
-        # number of hidden layer 'neurons'
-        self.num_hidden_units = 50
-        # number of output units - 1 signifying the probability of white winning, the 2nd is black winning
-        self.num_output_units = 23
-        # how many iterations?
-        self.cycles = 100
-        # Use the step size that Tesauro used
-        self.learning_rate = .1
-        # Use the Gamma size that Tesauro used
-        self.discount_rate = .9
-        # Use the Lambda size that Tesauro used
-        self.lam = .7
-        self.delta = 0
-        self.w = np.ones(198)
-        self.theta = np.random.randn(23)
-        self.alpha_w = 0.01
-        self.alpha_theta = 0.01
-        self.ind = 1
-        self.gamma = 0.9
-        # 198 cols 100 rows
-        # self.features = [[np.random.randn() for x in range(self.num_inputs)] for y in range(self.cycles)]
-
-        # 40
-        self.hidden_layer = [np.random.randn() for x in range(self.num_hidden_units)]
-        # 2
-        self.output_layer = [np.random.randn() for x in range(self.num_output_units)]
-
-        # R x C  23 x 50
-        self.input_weights = [[np.random.randn() for x in range(self.num_hidden_units)] for y in range(self.num_inputs)]
-        # 50 x 23
-        self.hidden_weights = [[np.random.randn() for x in range(self.num_output_units)] for y in range(self.num_hidden_units)]
-
-    def sigmoid(self, z):
-        return 1.0 / (1.0 + np.exp(-z))
-
-    # Erum að update-a Output layer og hidden layer i leiðinni
-    # getum gert það í hvert skipti sem action keyrist (pass maybe að það runnist þegar baðir bunir að gera?)
-    # 1.update features after move
-    # 2. forward pass to evaluate new board after state values(aka values after move)
-    # 3. update hidden layer vals(h) and output layer vals (y) should get 1 int(to get max of)
-
-    def feed_forward(self, features):
-        # Variable(torch.tensor(one_hot_encoding(board, player), dtype = torch.float, device=device)).view(2 * 9, 1)
-        # now do a forward pass to evaluate the new board's after-state value
-
-        self.hidden_layer = sigmoid(np.matmul(features, self.input_weights))
-        self.output_layer = sigmoid(np.matmul(np.transpose(self.hidden_layer), self.hidden_weights))
-        # delta2 = 0 + gamma * target - y_sigmoid.detach().cpu().numpy()  # this is the usual TD error
-        self.backpropogation(features)
-        return self.output_layer
-    # Hér er policy gradient
-    # Updating hidden weights and output weights 12 w1 and w2
-
-    def backpropogation(self, board):
-        d_1 = [[np.random.randn() for x in range(50)] for y in range(23)]
-        # 40 x 2
-        d_2 = [[np.random.randn() for x in range(1)] for y in range(50)]
-        for j in range(0, 50):
-                d_2[j] = sigmoid_derivative(self.output_layer) * self.hidden_layer[j]
-                for i in range(0, 23):
-                    d_1[i][j] = sigmoid_derivative(self.output_layer) * self.hidden_weights[j] * self.hidden_layer[j] * (1 - self.hidden_layer[j]) * board[i]
-                    d_1[i][j] = d_1[i][j][0]
-        self.input_weights = np.add(self.input_weights, d_1)
-        self.hidden_weights = np.add(self.hidden_weights, d_2)
-    # Given representation(features) calculate value of board(state) with NN(approx val function)
-
-    def getValue(self, board, player):
-        # hl = copy.copy(self.hidden_layer)
-        # ol = copy.copy(self.output_layer)
-        # iw = copy.copy(self.input_weights)
-        # INPUT * HIDDEN LAYER -> * Output weights = Output layer
-        features = getFeatures(board)
-        hl = sigmoid(np.matmul(features, self.input_weights) + self.hl_bias)
-        ol = sigmoid(np.matmul(np.transpose(hl), self.hidden_weights) + self.ol_bias)
-        return ol
 
 
 def epsilon_nn_greedy(board, player, epsilon, w1, b1, w2, b2, debug=False):
@@ -367,6 +247,9 @@ def softmax(possible_moves, possible_boards, board, player, net):
 
     val = board[1:24] - val
     # print("pol")
+    # print(pol)
+    # print("pol2")
+    # print(pol2)
     # print(len(pol))
     # print("pol2")
     # print(len(pol2))
@@ -376,7 +259,9 @@ def softmax(possible_moves, possible_boards, board, player, net):
     # print(random.choices(pol, pol2, k=100))
     # print("listthing2")
     # print(random.sample(random.choices(pol, pol2, k=100), 1))
-    # print(pol.tolist().index(random.sample(random.choices(pol, pol2, k=100), 1))[0])
+    # print(random.choices(pol, pol2, k=100))
+    if(len(pol) == 1):
+        return store[0], val
     return store[pol.tolist().index(random.sample(random.choices(pol, pol2, k=100), 1)[0])], val
 
 

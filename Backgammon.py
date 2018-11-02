@@ -241,8 +241,8 @@ def play_a_game(commentary=False, net=None):
     # print(f_final)
     # print(agent.getValue(board, player))
     delta = -1 * player - net.torch_nn.forward(agent.getFeatures(board_copy, player))
-    net.torch_nn.backward(0.9, delta)
-    net.policy_nn.theta = net.policy_nn.theta + net.policy_nn.alpha_theta * net.i * delta * board_copy[1:24]
+    net.torch_nn.backward(0.5, delta)
+    net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * net.i * delta * board_copy[1:24]
     return -1 * player
 
 

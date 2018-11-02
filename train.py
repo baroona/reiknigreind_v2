@@ -30,7 +30,7 @@ def main():
             print(new_agent.torch_nn_policy.theta)
     # print(winners)
     file = open('Failed.py', 'w')
-    file.write(arr)
+    file.write(np.array_str(arr))
     file.close()
     print("Out of", nGames, "games,")
     print("player", 1, "won", winners["1"], "times and")
