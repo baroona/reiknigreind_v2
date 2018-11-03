@@ -24,22 +24,6 @@ def sigmoid(z):
         return 1.0 / (1.0 + np.exp(-z))
 
 
-def getValue(board, player):
-    features = getFeatures(board, player)
-    num_hidden_units = 41
-    num_output_units = 1
-    num_inputs = 198
-    hl_bias = 1
-    ol_bias = 1
-    input_weights = [[np.random.randn() for x in range(num_hidden_units)] for y in range(num_inputs)]
-        # 40 x 2
-    hidden_weights = [[np.random.randn() for x in range(num_output_units)] for y in range(num_hidden_units)]
-    hl = sigmoid(np.matmul(features, input_weights) + hl_bias)
-    ol = sigmoid(np.matmul(np.transpose(hl), hidden_weights) + ol_bias)
-    return ol
-
-
-
 def getFeatures(board, player):
     features = np.zeros((198))
     for i in range(1, 24):
@@ -130,7 +114,7 @@ class torch_nn():
         # zero the gradients
         # delta2 = 0 + gamma * self.target - self.y_sigmoid.detach().cpu().numpy()  # this is the usual TD error
         # perform now the update for the weights
-        delta = torch.tensor(delta, dtype=torch.float, device=self.device)
+        # delta = torch.tensor(delta, dtype=torch.float, device=self.device)
         self.w1.data = self.w1.data + self.alpha * delta * self.w1.grad.data
         self.b1.data = self.b1.data + self.alpha * delta * self.b1.grad.data
         self.w2.data = self.w2.data + self.alpha * delta * self.w2.grad.data
@@ -152,7 +136,7 @@ class torch_nn_policy():
         self.y_sigmoid = 0
         self.target = 0
         self.alpha = 0.001
-        self.theta = np.random.random_sample(198)
+        self.theta = np.zeros(198)
         self.alpha_theta = 0.01
 
     def forward(self, x):
@@ -174,11 +158,11 @@ class torch_nn_policy():
         # self.backward(0.5)
         return self.target
 
-    def backward(self, gamma):
+    def backward(self, gamma, r):
         self.y_sigmoid.backward()
         # update the eligibility traces using the gradients
         # zero the gradients
-        delta = 0 + gamma * self.target - self.y_sigmoid.detach().cpu().numpy()  # this is the usual TD error
+        delta = r + gamma * self.target - self.y_sigmoid.detach().cpu().numpy()  # this is the usual TD error
         # perform now the update for the weights
         delta2 = torch.tensor(delta, dtype=torch.float, device=self.device)
         self.w1.data = self.w1.data + self.alpha * delta2 * self.w1.grad.data
