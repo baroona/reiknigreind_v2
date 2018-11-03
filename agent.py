@@ -11,7 +11,6 @@ import random
 import math
 import torch
 from torch.autograd import Variable
-import pickle
 
 
 def sigmoid_derivative(x):
@@ -22,21 +21,7 @@ def sigmoid(z):
         return 1.0 / (1.0 + np.exp(-z))
 
 
-def getValue(board, player):
-    features = getFeatures(board, player)
-    num_hidden_units = 41
-    num_output_units = 1
-    num_inputs = 198
-    hl_bias = 1
-    ol_bias = 1
-    input_weights = [[np.random.randn() for x in range(num_hidden_units)] for y in range(num_inputs)]
-        # 40 x 2
-    hidden_weights = [[np.random.randn() for x in range(num_output_units)] for y in range(num_hidden_units)]
-    hl = sigmoid(np.matmul(features, input_weights) + hl_bias)
-    ol = sigmoid(np.matmul(np.transpose(hl), hidden_weights) + ol_bias)
-    return ol
-
-
+# gets features for board
 def getFeatures(board, player):
     features = np.zeros((198))
     for i in range(1, 24):
@@ -222,7 +207,8 @@ def softmax(possible_moves, possible_boards, board, player, net):
     pol2 = np.zeros(n)
     feat = []
     s = 0
-    # print(possible_moves)
+    # iterate over possible moves
+    # save the boards and features in order with pol value(upper part of softmax fraction)
     for i in range(0, n):
         store.append([possible_boards[i], possible_moves[i]])
         feat.append(getFeatures(possible_boards[i], player))
@@ -236,15 +222,19 @@ def softmax(possible_moves, possible_boards, board, player, net):
 
         s = s + pol[i]
     val = np.zeros(198)
+    # finish calculating softmax value
+    # you need sum of exp of  all possible moves
     for j in range(0, n):
         pol2[j] = pol[j] / (s + 0.00000000000001)
         val = val + (pol2[j] * feat[j])
 
+    # error handling because of array indices problem
     if(len(pol) == 1):
         return store[0], val
     try:
-        return store[pol.tolist().index(random.sample(random.choices(pol, pol2, k=100), 1)[300])], val
+        return store[pol.tolist().index(random.sample(random.choices(pol, pol2, k=100), 1)[0])], val
     except:
+        print("EXCEPTION")
         return store[random.randrange(0, n)], val
 
 
@@ -259,15 +249,20 @@ def action(board_copy, dice, player, i, net=None):
     if len(possible_moves) == 0:
         return []
 
+    # return vec of new move(sampled) the board the move leads to
+    # and half of the grad of the softmax
     ret_arr, softmax_deriv = softmax(possible_moves, possible_boards, board_copy, player, net)
     s_prime = ret_arr[0]
-
+    # because we use class vars in backward()
+    # we need the "x old" value to be calculated last
     delta = net.gamma * net.torch_nn.forward(getFeatures(s_prime, player))
     delta = delta - net.torch_nn.forward(getFeatures(board_copy, player))
+    # Z_w and w are updated in backward function
     net.torch_nn.backward(net.gamma, delta)
+    # update Z_theta
     net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (getFeatures(s_prime, player) - softmax_deriv)
+    # update theta
     net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
     net.i = net.gamma * net.i
-    # if(i > 1)
 
     return ret_arr[1]
