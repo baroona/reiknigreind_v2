@@ -228,7 +228,21 @@ def play_a_game(commentary=False, net=None):
             if len(move) != 0:
                 for m in move:
                     board = update_board(board, m, player)
-
+                    if(player == 1):
+                        if(not game_over(board) and not check_for_error(board)):
+                            delta = 0 + net.gamma * net.torch_nn.forward(agent.getFeatures(board, player))
+                            delta = delta - net.torch_nn.forward(agent.getFeatures(board_copy, player))
+                            net.torch_nn.backward(net.gamma, delta)
+                            # update Z_theta
+                            net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (agent.getFeatures(board_copy, player) - net.softmax_deriv)
+                            # update theta
+                            net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
+                            net.i = net.gamma * net.i
+                    if(game_over(board) or check_for_error(board)):
+                        delta = player - net.torch_nn.forward(agent.getFeatures(board_copy, player))
+                        net.torch_nn.backward(net.gamma, delta)
+                        net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (agent.getFeatures(board_copy, player) - net.softmax_deriv)
+                        net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
             #  give status after every move:
             if commentary:
                 print("move from player", player, ":")
@@ -238,15 +252,9 @@ def play_a_game(commentary=False, net=None):
         player = -player
 
     #  return the winner
-    # print(board)
-    # f_final = agent.getFeatures(board, player)
-    # print(f_final)
-    # print(agent.getValue(board, player))
-    delta = -1 * player - net.torch_nn.forward(agent.getFeatures(board_copy, player * -1))
-    # print(net.torch_nn_policy.theta)
-    net.torch_nn.backward(net.gamma, -1 * player)
-    net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (agent.getFeatures(board_copy, player * -1))
-    net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
+    # update if we lost
+    # otherwise it was updated in action function
+    print("player %f won", -1 * player)
     # print("delta")
     # print(delta)
     # print(net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z)

@@ -58,11 +58,11 @@ def getFeatures(board, player):
     features[194] = board[27] / 15
     features[195] = board[28] / 15
     if(player == 1):
-        features[196] = 1
+        features[196] = 0
         features[197] = 0
     else:
         features[196] = 0
-        features[197] = 1
+        features[197] = 0
     return features
 
 
@@ -75,6 +75,8 @@ class net():
         self.torch_nn_policy = torch_nn_policy()
         self.i = 1
         self.gamma = 0.9
+        self.ret_arr = None
+        self.softmax_deriv = None
 
 
 # neural net for the critic function
@@ -251,18 +253,18 @@ def action(board_copy, dice, player, i, net=None):
 
     # return vec of new move(sampled) the board the move leads to
     # and half of the grad of the softmax
-    ret_arr, softmax_deriv = softmax(possible_moves, possible_boards, board_copy, player, net)
-    s_prime = ret_arr[0]
+    net.ret_arr, net.softmax_deriv = softmax(possible_moves, possible_boards, board_copy, player, net)
+    # s_prime = net.ret_arr[0]
     # because we use class vars in backward()
     # we need the "x old" value to be calculated last
-    delta = net.gamma * net.torch_nn.forward(getFeatures(s_prime, player))
-    delta = delta - net.torch_nn.forward(getFeatures(board_copy, player))
+    # delta = 0 + net.gamma * net.torch_nn.forward(getFeatures(s_prime, player))
+    # delta = delta - net.torch_nn.forward(getFeatures(board_copy, player))
     # Z_w and w are updated in backward function
-    net.torch_nn.backward(net.gamma, delta)
+    # net.torch_nn.backward(net.gamma, delta)
     # update Z_theta
-    net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (getFeatures(s_prime, player) - softmax_deriv)
+    # net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (getFeatures(s_prime, player) - net.softmax_deriv)
     # update theta
-    net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
-    net.i = net.gamma * net.i
+    # net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
+    # net.i = net.gamma * net.i
 
-    return ret_arr[1]
+    return net.ret_arr[1]

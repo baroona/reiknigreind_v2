@@ -13,7 +13,7 @@ def main():
     winners = {}
     winners["1"] = 0
     winners["-1"] = 0  # Collecting stats of the games
-    nGames = 10000  # how many games?
+    nGames = 1000  # how many games?
     arr = np.zeros(nGames)
     for g in range(nGames):
         winner = Backgammon.play_a_game(commentary=False, net=new_agent)
