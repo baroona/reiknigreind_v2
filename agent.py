@@ -150,33 +150,28 @@ class torch_nn_policy():
 
     def __init__(self):
         self.device = torch.device('cpu')
-        self.w1 = Variable(torch.randn(40, 23, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
-        self.b1 = Variable(torch.zeros((40, 1), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
-        self.w2 = Variable(torch.randn(1, 40, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
-        self.b2 = Variable(torch.zeros((1, 1), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
+        self.w1 = Variable(torch.randn(40, 28, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
+        self.b1 = Variable(torch.zeros((40, 28), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
+        self.w2 = Variable(torch.randn(28, 40, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
+        self.b2 = Variable(torch.zeros((28, 1), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.y_sigmoid = 0
         self.target = 0
         self.alpha = 0.001
-        self.theta = np.zeros(198)
+        self.theta = np.zeros(28)
         self.alpha_theta = 0.01
 
     def forward(self, x):
         # x = Variable(torch.tensor(one_hot_encoding(board, player), dtype = torch.float, device = device)).view(2*9,1)
         # now do a forward pass to evaluate the new board's after-state value
-        x_prime = Variable(torch.tensor(x, dtype=torch.float, device=self.device)).view(23, 1)
+        x_prime = Variable(torch.tensor(x, dtype=torch.float, device=self.device)).view(28, 1)
         # x_prime = torch.tensor(x, dtype=torch.float, device=self.device)
         h = torch.mm(self.w1, x_prime) + self.b1  # matrix-multiply x with input weight w1 and add bias
         h_sigmoid = h.sigmoid()  # squash this with a sigmoid function
         y = torch.mm(self.w2, h_sigmoid) + self.b2  # multiply with the output weights w2 and add bias
-        self.y_sigmoid = y.sigmoid()  # squash this with a sigmoid function
+        self.y_sigmoid = y.log_softmax(x)  # squash this with a sigmoid function
         self.target = self.y_sigmoid.detach().cpu().numpy()
-        # lets also do a forward past for the old board, this is the state we will update
-        # h = torch.mm(w1,xold) + b1 # matrix-multiply x with input weight w1 and add bias
-        # h_sigmoid = h.sigmoid() # squash this with a sigmoid function
-        # y = torch.mm(w2,h_sigmoid) + b2 # multiply with the output weights w2 and add bias
-        # y_sigmoid = y.sigmoid() # squash the output
-        # delta2 = 0 + gamma * target - y_sigmoid.detach().cpu().numpy() # this is the usual TD error
-        # self.backward(0.5)
+        # F.log_softmax(x)
+        self.backward(0.8, 0)
         return self.target
 
     def backward(self, gamma, r):
@@ -209,14 +204,14 @@ def softmax(possible_moves, possible_boards, board, player, net):
         # print("this is temp_val %i", temp_val)
         # temp_val = np.dot(np.transpose(net.policy_nn.theta), possible_boards[i][1:24])
         store.append([possible_boards[i], possible_moves[i]])
-        feat.append(getFeatures(possible_boards[i], player))
+        feat.append(possible_boards[i][1:29])
         # print(net.torch_nn_policy.forward(possible_boards[i][1:24]))
         # pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, net.torch_nn_policy.forward(possible_boards[i][1:24]))), 7)
-        pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, (feat[i]))), 12)
+        pol[i] = round(math.exp(np.max(np.dot(net.torch_nn_policy.theta, net.torch_nn_policy.forward(possible_boards[i][1:29])))), 12)
 
         # net.torch_nn_policy.backward(0.5)
         s = s + pol[i]
-    val = np.zeros(198)
+    val = np.zeros(28)
     for j in range(0, n):
         pol2[j] = pol[j] / (s + 0.00000000000001)
         val = val + (pol2[j] * feat[j])
