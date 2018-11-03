@@ -1,6 +1,5 @@
 import agent
 import Backgammon
-import math
 import numpy as np
 # train
 

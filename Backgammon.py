@@ -201,6 +201,7 @@ def play_a_game(commentary=False, net=None):
     board = init_board()  # initialize the board
     player = np.random.randint(2) * 2 - 1  # which player begins?
     net.i = 1
+    net.torch_nn.null_z()
     # play on
     while not game_over(board) and not check_for_error(board):
         if commentary:
