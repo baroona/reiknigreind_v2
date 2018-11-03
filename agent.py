@@ -81,6 +81,7 @@ def getFeatures(board, player):
     return features
 
 
+# makes the class objects for the 2 neural nets
 class net():
     def __init__(self):
         # self.val_func_nn = val_func_nn()
@@ -91,11 +92,12 @@ class net():
         self.gamma = 0.9
 
 
+# neural net for the critic function
 class torch_nn():
 
     def __init__(self):
         self.device = torch.device('cpu')
-        self.lam = 0.8
+        self.lam = 1
         self.w1 = Variable(torch.randn(40, 198, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.b1 = Variable(torch.zeros((40, 1), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.w2 = Variable(torch.randn(1, 40, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
@@ -153,21 +155,23 @@ class torch_nn():
         self.b2.data = self.b2.data + self.alpha2 * delta2 * self.Z_b2
 
 
+# Neural network for actor, not yet implemented fully
 class torch_nn_policy():
 
     def __init__(self):
         self.device = torch.device('cpu')
-        self.w1 = Variable(torch.randn(40, 23, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
+        self.w1 = Variable(torch.randn(40, 198, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.b1 = Variable(torch.zeros((40, 1), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.w2 = Variable(torch.randn(1, 40, device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.b2 = Variable(torch.zeros((1, 1), device=torch.device('cpu'), dtype=torch.float), requires_grad=True)
         self.y_sigmoid = 0
         self.target = 0
         self.alpha = 0.001
-        self.theta = np.random.randn(198)
+        # self.theta = np.random.uniform(-1, 1.0, 198)
+        self.theta = np.zeros(198)
         self.alpha_theta = 0.01
         self.z = np.zeros(198)
-        self.lam = 0.8
+        self.lam = 1
 
     def null_z(self):
         self.z = np.zeros(198)
@@ -175,7 +179,7 @@ class torch_nn_policy():
     def forward(self, x):
         # x = Variable(torch.tensor(one_hot_encoding(board, player), dtype = torch.float, device = device)).view(2*9,1)
         # now do a forward pass to evaluate the new board's after-state value
-        x_prime = Variable(torch.tensor(x, dtype=torch.float, device=self.device)).view(23, 1)
+        x_prime = Variable(torch.tensor(x, dtype=torch.float, device=self.device)).view(198, 1)
         # x_prime = torch.tensor(x, dtype=torch.float, device=self.device)
         h = torch.mm(self.w1, x_prime) + self.b1  # matrix-multiply x with input weight w1 and add bias
         h_sigmoid = h.sigmoid()  # squash this with a sigmoid function
@@ -208,6 +212,7 @@ class torch_nn_policy():
         self.b1.grad.data.zero_()
 
 
+# Softmax func for actor in the agent
 def softmax(possible_moves, possible_boards, board, player, net):
     n = len(possible_moves)
     # print(" nr of possibl moves is %i", len(possible_moves))
@@ -221,9 +226,13 @@ def softmax(possible_moves, possible_boards, board, player, net):
     for i in range(0, n):
         store.append([possible_boards[i], possible_moves[i]])
         feat.append(getFeatures(possible_boards[i], player))
+        # feat.append(net.torch_nn_policy.forward(getFeatures(possible_boards[i], player)))
+        # feat.append(net.torch_nn_policy.forward(net.torch_nn_policy.theta))
+
         # print(net.torch_nn_policy.forward(possible_boards[i][1:24]))
-        # pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, net.torch_nn_policy.forward(possible_boards[i][1:24]))), 7)
+        # pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, net.torch_nn_policy.forward(possible_boards[i][1:24]))), 12)
         pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, (feat[i]))), 12)
+        # pol[i] = round(math.exp((feat[i])), 12)
 
         s = s + pol[i]
     val = np.zeros(198)
@@ -253,8 +262,8 @@ def action(board_copy, dice, player, i, net=None):
     ret_arr, softmax_deriv = softmax(possible_moves, possible_boards, board_copy, player, net)
     s_prime = ret_arr[0]
 
-    delta = 0 + net.gamma * net.torch_nn.forward(getFeatures(s_prime, player)) - net.torch_nn.forward(getFeatures(board_copy, player))
-    # print(delta)
+    delta = net.gamma * net.torch_nn.forward(getFeatures(s_prime, player))
+    delta = delta - net.torch_nn.forward(getFeatures(board_copy, player))
     net.torch_nn.backward(net.gamma, delta)
     net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (getFeatures(s_prime, player) - softmax_deriv)
     net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
