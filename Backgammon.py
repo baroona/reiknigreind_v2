@@ -237,20 +237,11 @@ def play_a_game(commentary=False, net=None):
         #  players take turns
         player = -player
 
-    #  return the winner
-    # print(board)
-    # f_final = agent.getFeatures(board, player)
-    # print(f_final)
-    # print(agent.getValue(board, player))
     delta = -1 * player - net.torch_nn.forward(agent.getFeatures(board_copy, player * -1))
-    # print(net.torch_nn_policy.theta)
     net.torch_nn.backward(net.gamma, -1 * player)
-    net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (agent.getFeatures(board_copy, player * -1))
+    # net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (agent.getFeatures(board_copy, player * -1))
+    net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * board_copy[1:24]
     net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
-    # print("delta")
-    # print(delta)
-    # print(net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z)
-
     return -1 * player
 
 

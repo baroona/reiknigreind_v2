@@ -11,7 +11,6 @@ import random
 import math
 import torch
 from torch.autograd import Variable
-import pickle
 
 
 def sigmoid_derivative(x):
@@ -20,21 +19,6 @@ def sigmoid_derivative(x):
 
 def sigmoid(z):
         return 1.0 / (1.0 + np.exp(-z))
-
-
-def getValue(board, player):
-    features = getFeatures(board, player)
-    num_hidden_units = 41
-    num_output_units = 1
-    num_inputs = 198
-    hl_bias = 1
-    ol_bias = 1
-    input_weights = [[np.random.randn() for x in range(num_hidden_units)] for y in range(num_inputs)]
-        # 40 x 2
-    hidden_weights = [[np.random.randn() for x in range(num_output_units)] for y in range(num_hidden_units)]
-    hl = sigmoid(np.matmul(features, input_weights) + hl_bias)
-    ol = sigmoid(np.matmul(np.transpose(hl), hidden_weights) + ol_bias)
-    return ol
 
 
 def getFeatures(board, player):
@@ -131,12 +115,7 @@ class torch_nn():
 
     def backward(self, gamma, delta):
         self.y_sigmoid.backward()
-        # update the eligibility traces using the gradients
-        # zero the gradients
-        # delta2 = 0 + gamma * self.target - self.y_sigmoid.detach().cpu().numpy()  # this is the usual TD error
-        # perform now the update for the weights
-        # delta = torch.tensor(delta, dtype=torch.float, device=self.device)
-
+    
         self.Z_w2 = gamma * self.lam * self.Z_w2 + self.w2.grad.data
         self.Z_b2 = gamma * self.lam * self.Z_b2 + self.b2.grad.data
         self.Z_w1 = gamma * self.lam * self.Z_w1 + self.w1.grad.data
@@ -168,13 +147,14 @@ class torch_nn_policy():
         self.target = 0
         self.alpha = 0.001
         # self.theta = np.random.uniform(-1, 1.0, 198)
-        self.theta = np.zeros(198)
+        self.theta = np.zeros(23)
         self.alpha_theta = 0.01
-        self.z = np.zeros(198)
+        self.z = np.zeros(23)
         self.lam = 1
 
     def null_z(self):
-        self.z = np.zeros(198)
+        # self.z = np.zeros(198)
+        self.z = np.zeros(23)
 
     def forward(self, x):
         # x = Variable(torch.tensor(one_hot_encoding(board, player), dtype = torch.float, device = device)).view(2*9,1)
@@ -225,25 +205,27 @@ def softmax(possible_moves, possible_boards, board, player, net):
     # print(possible_moves)
     for i in range(0, n):
         store.append([possible_boards[i], possible_moves[i]])
-        feat.append(getFeatures(possible_boards[i], player))
+        # feat.append(getFeatures(possible_boards[i], player))
         # feat.append(net.torch_nn_policy.forward(getFeatures(possible_boards[i], player)))
         # feat.append(net.torch_nn_policy.forward(net.torch_nn_policy.theta))
 
         # print(net.torch_nn_policy.forward(possible_boards[i][1:24]))
         # pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, net.torch_nn_policy.forward(possible_boards[i][1:24]))), 12)
-        pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, (feat[i]))), 12)
+        # pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, (feat[i]))), 12)
         # pol[i] = round(math.exp((feat[i])), 12)
+        pol[i] = round(math.exp(np.dot(net.torch_nn_policy.theta, possible_boards[i][1:24])), 12)
 
         s = s + pol[i]
-    val = np.zeros(198)
+    # val = np.zeros(198)
+    val = np.zeros(23)
     for j in range(0, n):
         pol2[j] = pol[j] / (s + 0.00000000000001)
-        val = val + (pol2[j] * feat[j])
-
+        # val = val + (pol2[j] * feat[j])
+        val = val + (pol2[j] * possible_boards[j][1:24])
     if(len(pol) == 1):
         return store[0], val
     try:
-        return store[pol.tolist().index(random.sample(random.choices(pol, pol2, k=100), 1)[300])], val
+        return store[pol.tolist().index(random.sample(random.choices(pol, pol2, k=100), 1)[0])], val
     except:
         return store[random.randrange(0, n)], val
 
@@ -265,7 +247,9 @@ def action(board_copy, dice, player, i, net=None):
     delta = net.gamma * net.torch_nn.forward(getFeatures(s_prime, player))
     delta = delta - net.torch_nn.forward(getFeatures(board_copy, player))
     net.torch_nn.backward(net.gamma, delta)
-    net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (getFeatures(s_prime, player) - softmax_deriv)
+    # net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (getFeatures(s_prime, player) - softmax_deriv)
+    net.torch_nn_policy.z = net.gamma * net.torch_nn_policy.lam * net.torch_nn_policy.z + net.i * (s_prime[1:24] - softmax_deriv)
+
     net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * delta * net.torch_nn_policy.z
     net.i = net.gamma * net.i
     # if(i > 1)
