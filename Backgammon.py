@@ -226,6 +226,17 @@ def play_a_game(commentary=False, net=None):
             if len(move) != 0:
                 for m in move:
                     board = update_board(board, m, player)
+                    if(player == 1):
+                        if(not game_over(board) and not check_for_error(board)):
+                            delta = 0 + net.gamma * net.torch_nn.forward(agent.getFeatures(board, player)) - net.torch_nn.forward(agent.getFeatures(board_copy, player))
+                            # print(delta)
+                            net.torch_nn.backward(net.gamma, delta)
+                            net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * net.i * delta * (agent.getFeatures(board_copy, player) - net.softmax_deriv)
+                            net.i = net.gamma * net.i
+                    if(game_over(board) or check_for_error(board)):
+                        delta = player - net.torch_nn.forward(agent.getFeatures(board_copy, player))
+                        net.torch_nn.backward(net.gamma, delta)
+                        net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * net.i * delta * (agent.getFeatures(board_copy, player) - net.softmax_deriv)
 
             #  give status after every move:
             if commentary:
@@ -240,9 +251,6 @@ def play_a_game(commentary=False, net=None):
     # f_final = agent.getFeatures(board, player)
     # print(f_final)
     # print(agent.getValue(board, player))
-    delta = -1 * player - net.torch_nn.forward(agent.getFeatures(board_copy, player))
-    net.torch_nn.backward(net.gamma, delta)
-    net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * net.i * delta * agent.getFeatures(board_copy, player)
     return -1 * player
 
 

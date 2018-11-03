@@ -19,7 +19,7 @@ def main():
     for g in range(nGames):
         winner = Backgammon.play_a_game(commentary=False, net=new_agent)
         # print("game %i finished", g)
-        # print("winner is ", winner)
+        print("winner is ", winner)
         winners[str(winner)] += 1
         arr[g] = winner
         # print("this is hw")

@@ -76,6 +76,8 @@ class net():
         self.torch_nn_policy = torch_nn_policy()
         self.i = 1
         self.gamma = 1
+        self.ret_arr = None
+        self.softmax_deriv = None
 
 
 class torch_nn():
@@ -175,24 +177,6 @@ class torch_nn_policy():
         self.b1.grad.data.zero_()
 
 
-def epsilon_nn_greedy(board, player, epsilon, w1, b1, w2, b2, debug=False):
-    moves = Backgammon.legal_moves(board)
-    if np.random.uniform() < epsilon:
-        if debug is True:
-            print("explorative move")
-        return np.random.choice(moves, 1)
-    na = np.size(moves)
-    va = np.zeros(na)
-    for i in range(0, na):
-        board[moves[i]] = player
-        # encode the board to create the input
-
-        # FEATURES eru X
-
-        # va[i] = y.sigmoid()
-    return moves[np.argmax(va)]
-
-
 def softmax(possible_moves, possible_boards, board, player, net):
     n = len(possible_moves)
     # print(" nr of possibl moves is %i", len(possible_moves))
@@ -223,26 +207,13 @@ def softmax(possible_moves, possible_boards, board, player, net):
         pol2[j] = pol[j] / (s + 0.00000000000001)
         val = val + (pol2[j] * feat[j])
 
-    # print(pol2)
-    # print(val)
-    # val = board[1:24] - val
-    # print("pol")
-    # print(pol)
-    # print("pol2")
-    # print(pol2)
-    # print(len(pol))
-    # print("pol2")
-    # print(len(pol2))
-    # print("store")
-    # print(len(store))
-    # print("listthing1")
-    # print(random.choices(pol, pol2, k=100))
-    # print("listthing2")
-    # print(random.sample(random.choices(pol, pol2, k=100), 1))
-    # print(random.choices(pol, pol2, k=100))
-    if(len(pol) == 1):
+    if(n == 1):
         return store[0], val
-    return store[pol.tolist().index(random.sample(random.choices(pol, pol2, k=100), 1)[0])], val
+    try:
+        return store[pol.tolist().index(random.sample(random.choices(pol, pol2, k=100), 1)[0])], val
+    except:
+        print("EXCEPTION")
+        return store[random.randrange(0, n)], val
 
 
 def action(board_copy, dice, player, i, net=None):
@@ -258,23 +229,20 @@ def action(board_copy, dice, player, i, net=None):
     if len(possible_moves) == 0:
         return []
 
-    ret_arr, softmax_deriv = softmax(possible_moves, possible_boards, board_copy, player, net)
-    s_prime = ret_arr[0]
+    net.ret_arr, net.softmax_deriv = softmax(possible_moves, possible_boards, board_copy, player, net)
+    # s_prime = ret_arr[0]
 
     # print(0 + gamma * net.torch_nn.forward(getFeatures(s_prime, player)) - net.torch_nn.forward(getFeatures(board_copy, player)))
 
     # delta = 0 + gamma * net.val_func_nn.forward(s_prime, player) - net.val_func_nn.forward(board_copy, player)
-    delta = 0 + net.gamma * net.torch_nn.forward(getFeatures(s_prime, player)) - net.torch_nn.forward(getFeatures(board_copy, player))
-    # print(delta)
-    net.torch_nn.backward(net.gamma, delta)
     # print("delta is %i", delta)
     # net.val_func_nn.w = net.val_func_nn.w + (net.val_func_nn.alpha_w * delta * net.val_func_nn.backward(board_copy, player))
     # net.policy_nn.theta = np.append(np.ravel(nn.input_weights), nn.hidden_weights)
     # backprop
     # HERA WEIGHTS I SITTHVORU LAGI
 
-    net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * net.i * delta * softmax_deriv
+    # net.torch_nn_policy.theta = net.torch_nn_policy.theta + net.torch_nn_policy.alpha_theta * net.i * delta * softmax_deriv
     net.i = net.gamma * net.i
     # if(i > 1)
 
-    return ret_arr[1]
+    return net.ret_arr[1]
