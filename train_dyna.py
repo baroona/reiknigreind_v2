@@ -27,8 +27,11 @@ num_classes = 10
 # agent = pickle.load(open('saved_net_one_2', 'rb'))
 # agent = NeuralNet(input_size, hidden_size, num_classes).to(device)
 agent = agent_dyna.agent()
-agent.actor.theta = pickle.load(open('saved_net_one', 'rb'))
-train = True
+# agent.actor.theta = pickle.load(open('saved_net_one', 'rb'))
+# print(agent.actor.theta)
+train = False
+if(train):
+    agent.actor.theta = pickle.load(open('saved_net_one', 'rb'))
 def main():
     # print(torch.randn(3, 5, requires_grad=True))
     # print(torch.randint(5, (3,), dtype=torch.int64))
@@ -36,16 +39,16 @@ def main():
     winners = {}
     winners["1"] = 0
     winners["-1"] = 0  # Collecting stats of the games
-    nGames = 600   # how many games?
+    nGames = 1000   # how many games?
     arr = np.zeros(nGames)
     for g in tqdm(range(nGames)):
         # ##Zero eligibility traces (according to psudo code)
         # agent.actor.zero_el()
         # agent.critic.zero_el()
-        winner = Backgammon.play_a_game(commentary=True, net=agent, train=train)
+        winner = Backgammon.play_a_game(commentary=False, net=agent, train=train)
         winners[str(winner)] += 1
-        arr[g] = winner
-        if(g % 10 == 0):
+        arr[g] = winner             
+        if(g % 100 == 0):
 
             print(agent.actor.theta)
             k = winners["1"]
